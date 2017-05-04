@@ -34,6 +34,12 @@ public partial class MainWindow: Gtk.Window
 			AppProperties.PredatorCountPerIteration,
 			AppProperties.WorldWidth,
 			AppProperties.WorldHeight);
+
+        #if DEBUG
+        _world.MultiThreaded = false;
+        #else
+        _world.MultiThreaded = true;
+        #endif
 	}
 
 	protected void OnDeleteEvent (object sender, DeleteEventArgs a)
@@ -99,7 +105,6 @@ public partial class MainWindow: Gtk.Window
         lock (_world)
         {
             _worldView.UpdateFrom(_world);
-//            GenerationLabel.Content = $"{step:D8}";
         }
         canvas.QueueDraw();
     }
@@ -111,78 +116,63 @@ public partial class MainWindow: Gtk.Window
 		loadSavedWorld.Hide ();
 	}
 
-	protected void OnRunbuttonClicked (object sender, EventArgs e)
-	{
-		HideControls ();
+    protected void RunWorld()
+    {
+        HideControls ();
+     
         canvas.SetSizeRequest (AppProperties.WorldWidth, AppProperties.WorldHeight);
 
-		_worldView = new WorldView(canvas, _world);
-
-        #if DEBUG
-        _world.MultiThreaded = false; // MultiThreaded.IsChecked ?? false;
-        #else
-        _world.MultiThreaded = true; // MultiThreaded.IsChecked ?? false;
-        #endif
+        _worldView = new WorldView(canvas, _world);
 
         _cancelTokenSource = new CancellationTokenSource();
-
         _thread = new Thread (this.CalcThread);
-		_thread.Start ();
+        _thread.Start ();
+    }
+
+	protected void OnRunbuttonClicked (object sender, EventArgs e)
+	{
+        RunWorld();
 	}
 
 	protected void OnLoadTopButtonClicked (object sender, EventArgs e)
 	{
-        /*
-		OpenFileDialog dialog = new OpenFileDialog();
+        Gtk.FileChooserDialog filechooser =
+            new Gtk.FileChooserDialog("Choose the file to open",
+                this,
+                FileChooserAction.Open,
+                "Cancel",ResponseType.Cancel,
+                "Open",ResponseType.Accept);
 
-		dialog.Filter = "XML Files (.xml)|*.xml|All Files (*.*)|*.*";
-		dialog.FilterIndex = 1;
+        filechooser.Filter = new FileFilter();
+        filechooser.Filter.AddPattern("*.xml");
 
-		dialog.Multiselect = false;
+        if (filechooser.Run() == (int)ResponseType.Accept) 
+        {
+            _world.InitializeFromTopFile(filechooser.Filename);
+            RunWorld();
+        }
 
-		bool? userClickedOK = dialog.ShowDialog();
-
-		if (userClickedOK == true)
-		{
-			// Open the selected file to read.
-			string filename = dialog.FileName;
-
-			world.InitializeFromTopFile(filename);
-
-			_worldView = new WorldView(grid, world);
-			HideAllControls();
-
-			world.MultiThreaded = MultiThreaded.IsChecked ?? false;
-
-			new Thread(this.CalcThread).Start();
-		}*/
+        filechooser.Destroy();
 	}
 
 	protected void OnLoadSavedWorldClicked (object sender, EventArgs e)
 	{
-        /*
-		OpenFileDialog dialog = new OpenFileDialog();
+        Gtk.FileChooserDialog filechooser =
+            new Gtk.FileChooserDialog("Choose the file to open",
+                this,
+                FileChooserAction.Open,
+                "Cancel",ResponseType.Cancel,
+                "Open",ResponseType.Accept);
 
-		dialog.Filter = "XML Files (.xml)|*.xml|All Files (*.*)|*.*";
-		dialog.FilterIndex = 1;
+        filechooser.Filter = new FileFilter();
+        filechooser.Filter.AddPattern("*.xml");
 
-		dialog.Multiselect = false;
+        if (filechooser.Run() == (int)ResponseType.Accept) 
+        {
+            _world.InitializeFromWorldFile(filechooser.Filename);
+            RunWorld();
+        }
 
-		bool? userClickedOK = dialog.ShowDialog();
-
-		if (userClickedOK == true)
-		{
-			// Open the selected file to read.
-			string filename = dialog.FileName;
-
-			world.InitializeFromTopFile(filename);
-
-			_worldView = new WorldView(grid, world);
-			HideAllControls();
-
-			world.MultiThreaded = MultiThreaded.IsChecked ?? false;
-
-			new Thread(this.CalcThread).Start();
-		}*/
+        filechooser.Destroy();
 	}
 }
