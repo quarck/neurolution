@@ -25,7 +25,7 @@ namespace Neurolution
         public const int SerializeTopEveryNStep = 8192 * 8;
         public const int SerializeWorldEveryNStep = 8192 * 64;
 
-        public const int NetworkSize = 256;
+        public const int NetworkSize = 64;
 
         public const int WorldSize = 128;
         public const int FoodCountPerIteration = 32;

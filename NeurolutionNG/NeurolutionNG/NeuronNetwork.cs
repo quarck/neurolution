@@ -30,28 +30,32 @@ namespace Neurolution
     }
 
     [Serializable]
-    public class Neuron
+    public struct Neuron
     {
         public float[] Weights;
 
         [NonSerialized]    
-        public float Charge = 0.0f;
+        public float Charge;
 
         [NonSerialized]
-        public NeuronState State = NeuronState.Idle;
+        public NeuronState State;
 
         public Neuron(int size, Random rnd)
         {
+            Charge = 0.0f;
+
+            State = NeuronState.Idle;
+            
             Weights = new float[size];
 
             for (int i = 0; i < size; ++i)
                 Weights[i] = 0.0f;
         }
 
-        public Neuron()
+/*        public Neuron()
         {
             Weights = null;
-        }
+        } */
 
         public static Neuron CloneFrom(Neuron other, Random rnd)
         {
@@ -132,7 +136,7 @@ namespace Neurolution
         {
         }
 
-        private float ValueCap(float val, float min, float max)
+        private static float ValueCap(float val, float min, float max)
         {
             return Math.Min(Math.Max(val, min), max);
         }
@@ -148,13 +152,27 @@ namespace Neurolution
 
                 float weightedInput = -neuron.Weights[neuronPositionInInputVector] * inputVector[neuronPositionInInputVector];
 
-                for (int i = 0; i < neuron.Weights.Length; ++i)
+                for (int i = 0; i < neuron.Weights.Length / 8; i += 8)
                 {
-                    weightedInput += neuron.Weights[i] * inputVector[i];
+                    weightedInput += 
+                        neuron.Weights[i+0] * inputVector[i+0] +
+                        neuron.Weights[i+1] * inputVector[i+1] +
+                        neuron.Weights[i+2] * inputVector[i+2] +
+                        neuron.Weights[i+3] * inputVector[i+3] +
+                        neuron.Weights[i+4] * inputVector[i+4] +
+                        neuron.Weights[i+5] * inputVector[i+5] +
+                        neuron.Weights[i+6] * inputVector[i+6] +
+                        neuron.Weights[i+7] * inputVector[i+7] ;
+                }
+                for (int i = 0; i < (neuron.Weights.Length & 7); ++i)
+                {
+                    weightedInput += 
+                        neuron.Weights[i+0] * inputVector[i+0];
                 }
 
                 // add some noise 
                 weightedInput += (float)((2.0 * rnd.NextDouble() - 1.0) * AppProperties.NetworkNoiseLevel);
+                //weightedInput += (float)(0.34* AppProperties.NetworkNoiseLevel);
 
 
                 // 2nd step - update neuron state according to current state + new input

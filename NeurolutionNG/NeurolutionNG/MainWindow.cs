@@ -72,7 +72,7 @@ public partial class MainWindow: Gtk.Window
 	{
         var token = _cancelTokenSource.Token;
 
-        for (long step = 0; !token.IsCancellationRequested; ++step)
+        for (long step = 0; ; ++step)
         {
             lock (_world)
             {
@@ -83,11 +83,15 @@ public partial class MainWindow: Gtk.Window
             if (step % 4 == 0)
             {
                 UpdateUI(step);
+                if (token.IsCancellationRequested)
+                    break;
             }
         }
 
-        statusLabel.Text = "Saving world";
+        //statusLabel.Text = "Saving world";
         _world.Save();
+
+        _thread = null;
 	}
 
     private void UpdateUI(long step)
@@ -113,7 +117,12 @@ public partial class MainWindow: Gtk.Window
         canvas.SetSizeRequest (AppProperties.WorldWidth, AppProperties.WorldHeight);
 
 		_worldView = new WorldView(canvas, _world);
-		_world.MultiThreaded = false; // MultiThreaded.IsChecked ?? false;
+
+        #if DEBUG
+        _world.MultiThreaded = false; // MultiThreaded.IsChecked ?? false;
+        #else
+        _world.MultiThreaded = true; // MultiThreaded.IsChecked ?? false;
+        #endif
 
         _cancelTokenSource = new CancellationTokenSource();
 
