@@ -13,11 +13,18 @@ namespace Neurolution
     // Current Energy 
     // Smell 
 
-    public class LightSensor
+    public struct LightSensor
     {
-        public float Direction = 0.0f; // radians 
-        public float Width = 0.0f;
-        public bool SensetiveToRed = false;
+        public float Direction;// = 0.0f; // radians 
+        public float Width;// = 0.0f;
+        public bool SensetiveToRed;// = false;
+
+        public LightSensor(float direction, float width, bool sensetiveToRed)
+        {
+            Direction = direction;
+            Width = width;
+            SensetiveToRed = sensetiveToRed;
+        }
     }
 
     public enum NeuronState: int
@@ -51,12 +58,7 @@ namespace Neurolution
             for (int i = 0; i < size; ++i)
                 Weights[i] = 0.0f;
         }
-
-/*        public Neuron()
-        {
-            Weights = null;
-        } */
-
+            
         public static Neuron CloneFrom(Neuron other, Random rnd)
         {
             float maxMutation = AppProperties.NetworkMaxRegularMutation;
@@ -115,11 +117,13 @@ namespace Neurolution
 
             for (int i = 0; i < AppProperties.EyeSize; ++i)
             {
-                Eye[i] = new LightSensor();;
-                double iPrime = ( (i >> 1) - AppProperties.EyeSize / 2) + 0.5;
-                Eye[i].Direction = (float) (AppProperties.EyeCellDirectionStep * iPrime);
-                Eye[i].Width = AppProperties.EyeCellWidth;
-                Eye[i].SensetiveToRed = (i & 1) == 0;
+                double iPrime = ( i - AppProperties.EyeSize/2) + 0.5;
+
+                float direction = (float) (AppProperties.EyeCellDirectionStep * iPrime);
+                float width = AppProperties.EyeCellWidth;
+                bool sensetiveToRed = (i & 1) == 0;
+
+                Eye[i] = new LightSensor(direction, width, sensetiveToRed);
             }
 
             Neurons = new Neuron[networkSize];
@@ -136,88 +140,84 @@ namespace Neurolution
         {
         }
 
-        private static float ValueCap(float val, float min, float max)
-        {
-            return Math.Min(Math.Max(val, min), max);
-        }
-
         private void IterateNetwork(Random rnd, float[] inputVector, float[] outputVector)
         {
             for (int j = 0; j < Neurons.Length; ++j)
             {
                 int neuronPositionInInputVector = j + AppProperties.EyeSize;
 
-                // 1st step - calculate updated charge values
                 var neuron = Neurons[j];
 
-                float weightedInput = -neuron.Weights[neuronPositionInInputVector] * inputVector[neuronPositionInInputVector];
-
-                for (int i = 0; i < neuron.Weights.Length / 8; i += 8)
+                if (neuron.State == NeuronState.Idle)
                 {
-                    weightedInput += 
-                        neuron.Weights[i+0] * inputVector[i+0] +
-                        neuron.Weights[i+1] * inputVector[i+1] +
-                        neuron.Weights[i+2] * inputVector[i+2] +
-                        neuron.Weights[i+3] * inputVector[i+3] +
-                        neuron.Weights[i+4] * inputVector[i+4] +
-                        neuron.Weights[i+5] * inputVector[i+5] +
-                        neuron.Weights[i+6] * inputVector[i+6] +
-                        neuron.Weights[i+7] * inputVector[i+7] ;
-                }
-                for (int i = 0; i < (neuron.Weights.Length & 7); ++i)
-                {
-                    weightedInput += 
-                        neuron.Weights[i+0] * inputVector[i+0];
-                }
+                    float weightedInput = -neuron.Weights[neuronPositionInInputVector] * inputVector[neuronPositionInInputVector];
 
-                // add some noise 
-                weightedInput += (float)((2.0 * rnd.NextDouble() - 1.0) * AppProperties.NetworkNoiseLevel);
-                //weightedInput += (float)(0.34* AppProperties.NetworkNoiseLevel);
+                    for (int i = 0; i < neuron.Weights.Length / 8; i += 8)
+                    {
+                        weightedInput += 
+                            neuron.Weights[i + 0] * inputVector[i + 0] +
+                            neuron.Weights[i + 1] * inputVector[i + 1] +
+                            neuron.Weights[i + 2] * inputVector[i + 2] +
+                            neuron.Weights[i + 3] * inputVector[i + 3] +
+                            neuron.Weights[i + 4] * inputVector[i + 4] +
+                            neuron.Weights[i + 5] * inputVector[i + 5] +
+                            neuron.Weights[i + 6] * inputVector[i + 6] +
+                            neuron.Weights[i + 7] * inputVector[i + 7];
+                    }
 
+                    for (int i = 0; i < (neuron.Weights.Length & 7); ++i)
+                    {
+                        weightedInput += 
+                            neuron.Weights[i + 0] * inputVector[i + 0];
+                    }
 
-                // 2nd step - update neuron state according to current state + new input
-                // and update state and current output
+                    // add some noise 
+                    weightedInput += (float)((2.0 * rnd.NextDouble() - 1.0) * AppProperties.NetworkNoiseLevel);
 
-                switch (neuron.State)
-                {
-                    case NeuronState.Idle:
+                    neuron.Charge = 
+                        Math.Min(
+                            Math.Max(
+                                neuron.Charge * AppProperties.NeuronChargeDecay + weightedInput, 
+                                AppProperties.NeuronMinCharge
+                            ),
+                            AppProperties.NeuronMaxCharge
+                        );
 
-                        neuron.Charge = ValueCap(
-                            neuron.Charge * AppProperties.NeuronChargeDecay + weightedInput,
-                            AppProperties.NeuronMinCharge,
-                            AppProperties.NeuronMaxCharge);
-
-                        if (neuron.Charge > AppProperties.NeuronChargeThreshold)
-                        {
-                            neuron.State = NeuronState.Excited0;
-                            outputVector[j] = 1.0f;
-                        }
-                        else
-                        {
-                            outputVector[j] = 0.0f;
-                        }
-                        break;
-
-                    case NeuronState.Excited0:
-                        neuron.State = NeuronState.Excited1;
+                    if (neuron.Charge > AppProperties.NeuronChargeThreshold)
+                    {
+                        neuron.State = NeuronState.Excited0;
                         outputVector[j] = 1.0f;
-                        break;
-
-                    case NeuronState.Excited1:
-                        neuron.State = NeuronState.Recovering0;
+                    }
+                    else
+                    {
                         outputVector[j] = 0.0f;
-                        break;
+                    }
+                }
+                else
+                {
+                    switch (neuron.State)
+                    {
+                        case NeuronState.Excited0:
+                            neuron.State = NeuronState.Excited1;
+                            outputVector[j] = 1.0f;
+                            break;
 
-                    case NeuronState.Recovering0:
-                        neuron.State = NeuronState.Recovering1;
-                        outputVector[j] = 0.0f;
-                        break;
+                        case NeuronState.Excited1:
+                            neuron.State = NeuronState.Recovering0;
+                            outputVector[j] = 0.0f;
+                            break;
 
-                    case NeuronState.Recovering1:
-                        neuron.State = NeuronState.Idle;
-                        neuron.Charge = 0.0f;
-                        outputVector[j] = 0.0f;
-                        break;
+                        case NeuronState.Recovering0:
+                            neuron.State = NeuronState.Recovering1;
+                            outputVector[j] = 0.0f;
+                            break;
+
+                        case NeuronState.Recovering1:
+                            neuron.State = NeuronState.Idle;
+                            neuron.Charge = 0.0f;
+                            outputVector[j] = 0.0f;
+                            break;
+                    }
                 }
             }
         }

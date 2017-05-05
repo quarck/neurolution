@@ -289,6 +289,25 @@ namespace Neurolution
             }
         }
 
+
+        // Quick reverse square root from Quake 3 source code 
+        private static unsafe float Q_rsqrt(float number)
+        {
+            int i;
+            float x2, y;
+            const float threehalfs = 1.5F;
+
+            x2 = number * 0.5F;
+            y  = number;
+            i  = *(int*)&y;                           // evil floating point bit level hacking
+            i  = 0x5f3759df - (i >> 1);               // what the fuck? 
+            y  = * (float*) &i;
+            y  = y * (threehalfs - (x2 * y * y) );   // 1st iteration
+
+            return y;
+        }
+
+
         public void IterateCell(long step, Cell cell)
         {
 //            float bodyDirectionX = Math.Cos(cell.Rotation);
@@ -306,10 +325,10 @@ namespace Neurolution
                         Item = item,
                         DirectionX = item.LocationX - cell.LocationX,
                         DirectionY = item.LocationY - cell.LocationY,
-                        Distnace = (float)(Math.Sqrt(
+                        DistanceSquare = (float)(
                                 Math.Pow(item.LocationX - cell.LocationX, 2) +
                                 Math.Pow(item.LocationY - cell.LocationY, 2) 
-                                ))
+                                )
                     })
                 .ToArray();
 
@@ -321,10 +340,10 @@ namespace Neurolution
                         Item = item,
                         DirectionX = item.LocationX - cell.LocationX,
                         DirectionY = item.LocationY - cell.LocationY,
-                        Distnace = (float)(Math.Sqrt(
+                        DistanceSquare = (float)(
                                 Math.Pow(item.LocationX - cell.LocationX, 2) +
                                 Math.Pow(item.LocationY - cell.LocationY, 2)
-                                ))
+                                )
                     })
                 .ToArray();
 
@@ -350,13 +369,15 @@ namespace Neurolution
                         if (modulo <= 0.0)
                             continue;
 
-                        float cosine = modulo/food.Distnace;
+                        float invSqrRoot = Q_rsqrt(food.DistanceSquare);
 
-                        float distnaceSquare = (float) Math.Pow(food.Distnace, 2);
+                        float cosine = modulo * invSqrRoot;
+
+                        //float distnaceSquare = (float) Math.Pow(food.Distnace, 2);
 
                         float signalLevel =
-                            (float) (food.Item.Value*Math.Pow(cosine, eyeCell.Width)
-                                     /distnaceSquare);
+                            (float) (food.Item.Value*Math.Pow(cosine, eyeCell.Width) 
+                                * invSqrRoot * invSqrRoot);
 
                         value += signalLevel;
                     }
@@ -371,13 +392,15 @@ namespace Neurolution
                         if (modulo <= 0.0)
                             continue;
 
-                        float cosine = modulo / predator.Distnace;
+                        float invSqrRoot = Q_rsqrt(predator.DistanceSquare);
 
-                        float distnaceSquare = (float)Math.Pow(predator.Distnace, 2);
+                        float cosine = modulo * invSqrRoot;
+
+//                        float distnaceSquare = (float)Math.Pow(predator.Distnace, 2);
 
                         float signalLevel =
                             (float)(predator.Item.Value * Math.Pow(cosine, eyeCell.Width)
-                                     / distnaceSquare);
+                                * invSqrRoot * invSqrRoot);
 
                         value += signalLevel;
                     }
