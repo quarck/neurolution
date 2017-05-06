@@ -10,13 +10,15 @@ namespace Neurolution
     {
         public const string SerializeTo = @"c:\users\spars\Desktop\cell.xml";
 
-        public const int RedEyeSize = 12;
-        public const int BlueEyeSize = 12;
+        public const int RedEyeSize = 24;
+        public const int BlueEyeSize = 24;
 
         public const int EyeSize = RedEyeSize + BlueEyeSize;
 
+        public const float EyeAngle = (float)Math.PI * 2.0f; // a little bit of insect eye (looking backwards)
+        public const float EyeCellDirectionStep = (float) ( EyeAngle / EyeSize);
+
         public const float EyeCellWidth = 0.1f;
-        public const float EyeCellDirectionStep = (float) (Math.PI / 25.0);
 
 
         public const int StepsPerGeneration = 512;
@@ -25,7 +27,7 @@ namespace Neurolution
         public const int SerializeTopEveryNStep = 8192 * 8;
         public const int SerializeWorldEveryNStep = 8192 * 64;
 
-        public const int NetworkSize = 64;
+        public const int NetworkSize = 256;
 
         public const int WorldSize = 128;
         public const int FoodCountPerIteration = 32;
