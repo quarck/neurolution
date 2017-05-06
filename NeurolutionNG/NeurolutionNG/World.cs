@@ -261,6 +261,16 @@ namespace Neurolution
             SerializeWorld(Cells.ToList(), -1);
         }
 
+        public void SaveBest(long step)
+        {
+            var best =
+                Cells
+                    .OrderByDescending(cell => cell.CurrentEnergy)
+                    .First();
+
+            SerializeBest(best, step);
+        }
+
 
         public void Iterate(long step)
         {
@@ -298,8 +308,8 @@ namespace Neurolution
                 {
                     SerializeBest(sortedWorld[0], step);
 
-                    if (step % AppProperties.SerializeWorldEveryNStep == 0)
-                        SerializeWorld(sortedWorld.ToList(), step);
+//                    if (step % AppProperties.SerializeWorldEveryNStep == 0)
+//                        SerializeWorld(sortedWorld.ToList(), step);
                 }
 
                 int srcIdx = 0;

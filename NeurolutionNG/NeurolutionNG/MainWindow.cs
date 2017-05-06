@@ -27,14 +27,14 @@ public partial class MainWindow: Gtk.Window
     private Thread _thread = null;
     private CancellationTokenSource _cancelTokenSource = null;
 
-    private volatile bool isDrawing = false;
-
     private Gdk.Rectangle _viewPort = 
         new Gdk.Rectangle(0, 0, 
             AppProperties.WorldWidth,
             AppProperties.WorldHeight);
 
     private long _lastStep = 0;
+
+    private DateTime _lastUIupdate = new DateTime(0);
 
     public MainWindow () : base (Gtk.WindowType.Toplevel)
     {
@@ -82,25 +82,11 @@ public partial class MainWindow: Gtk.Window
 
     void OnExposed(object o, ExposeEventArgs args) 
     {
-        isDrawing = true;
-
-        try 
+        if (_worldView != null)
         {
-            if (_worldView != null)
-            {
-                canvas.GdkWindow.DrawRectangle(canvas.Style.BackgroundGC(StateType.Normal), true, _viewPort);
-                _worldView.Draw();
-            }
-
-//            statusLabel.Text = $"Step {_lastStep}";
+            canvas.GdkWindow.DrawRectangle(canvas.Style.BackgroundGC(StateType.Normal), true, _viewPort);
+            _worldView.Draw();
         }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Ex: {ex}, trace: {ex.StackTrace}");
-            Environment.Exit(-1);
-        }
-
-        isDrawing = false;
     }
 
     private void CalcThread()
@@ -119,29 +105,43 @@ public partial class MainWindow: Gtk.Window
 
             if (step % 4 == 0)
             {
-                UpdateUI(step);
+                UpdateUI(step);     
                 if (token.IsCancellationRequested)
                     break;
             }
         }
 
-        //statusLabel.Text = "Saving world";
-        _world.Save();
+        _world.SaveBest(_lastStep);
 
         _thread = null;
     }
 
     private void UpdateUI(long step)
     {
-        lock (_world)
+        var now = DateTime.Now;
+
+        if ((now - _lastUIupdate).TotalMilliseconds < 1000 / 24)
         {
-            _worldView.UpdateFrom(_world);
+            return;
         }
 
-        statusLabel.Text = $"Step {_lastStep}";
+        _lastUIupdate = now;
 
-        if (!isDrawing)
+        var stepCopy = step;
+
+        Gtk.Application.Invoke(delegate {
+            
+            lock (_world)
+            {
+                _worldView.UpdateFrom(_world);
+            }
+
+            statusLabel.Text = $"Step {stepCopy}";
+
             canvas.QueueDrawArea(0, 0, AppProperties.WorldWidth, AppProperties.WorldHeight);
+        });
+
+
     }
 
     protected void HideControls()

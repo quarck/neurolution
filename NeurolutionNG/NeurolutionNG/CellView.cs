@@ -21,10 +21,10 @@ namespace Neurolution
             _cell = cell;
             _window = canvas.GdkWindow;           
 
-
             var gc = new Gdk.GC(_window);
             gc.Copy(canvas.Style.ForegroundGC(Gtk.StateType.Normal));
             gc.RgbFgColor = new Gdk.Color((byte) rnd.Next(128), (byte) rnd.Next(128), (byte) rnd.Next(128));
+
 
             // Add a Line Element
             _tailLine = new Line
@@ -85,14 +85,14 @@ namespace Neurolution
             else
             {
                 _tailLine.X1 = 0.0; // ;
-                _tailLine.X2 = 0.0; //  - dxTail;
+                _tailLine.X2 = 1.0; //  - dxTail;
                 _tailLine.Y1 = 0.0; // ;
-                _tailLine.Y2 = 0.0; //  - dyTail;
+                _tailLine.Y2 = 1.0; //  - dyTail;
                               
                 _bodyLine.X1 = 0.0; //  - dxBody;
-                _bodyLine.X2 = 0.0; //  + dxBody;
+                _bodyLine.X2 = 1.0; //  + dxBody;
                 _bodyLine.Y1 = 0.0; //  - dyBody;
-                _bodyLine.Y2 = 0.0; //  + dyBody;
+                _bodyLine.Y2 = 1.0; //  + dyBody;
             }
         }
     }
