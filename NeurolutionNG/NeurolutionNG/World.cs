@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
+
 namespace Neurolution
 {
     public class Predator
@@ -100,16 +101,68 @@ namespace Neurolution
         }
     }
 
+    public struct FoodDirection
+    {
+        public Food Item;
+        public float DirectionX;
+        public float DirectionY;
+        public float DistanceSquare;
+
+        public FoodDirection(Food item, float dx, float dy)
+        {
+            Item = item;
+            DirectionX = dx;
+            DirectionY = dy;
+            DistanceSquare = dx * dx + dy * dy;               
+        }
+
+        public void Set(Food item, float dx, float dy)
+        {
+            Item = item;
+            DirectionX = dx;
+            DirectionY = dy;
+            DistanceSquare = dx * dx + dy * dy;               
+        }
+    }
+
+    public struct PredatorDirection
+    {
+        public Predator Item;
+        public float DirectionX;
+        public float DirectionY;
+        public float DistanceSquare;
+
+        public PredatorDirection(Predator item, float dx, float dy)
+        {
+            Item = item;
+            DirectionX = dx;
+            DirectionY = dy;
+            DistanceSquare = dx * dx + dy * dy;               
+        }
+
+        public void Set(Predator item, float dx, float dy)
+        {
+            Item = item;
+            DirectionX = dx;
+            DirectionY = dy;
+            DistanceSquare = dx * dx + dy * dy;               
+        }
+    }
+
     public class World
     {
         public const float Sqrt2 = 1.4142135623730950488016887242097f;
 
-//        public const float FoodRadiusSquare = AppProperties.FoodRadius * AppProperties.FoodRadius;
-  //      public const float PredatorRadiusSquare = AppProperties.PredatorRadius * AppProperties.PredatorRadius;
-
         public Cell[] Cells;
+
         public Food[] Foods;
         public Predator[] Predators;
+
+        [ThreadStatic]
+        private FoodDirection[] foodDirections;
+
+        [ThreadStatic]
+        private PredatorDirection[] predatorDirections;
 
         private readonly int _maxX;
         private readonly int _maxY;
@@ -310,42 +363,41 @@ namespace Neurolution
 
         public void IterateCell(long step, Cell cell)
         {
-//            float bodyDirectionX = Math.Cos(cell.Rotation);
-//            float bodyDirectionY = Math.Sin(cell.Rotation);
+            if (foodDirections == null)
+            {
+                foodDirections = new FoodDirection[Foods.Length];
+                for (int idx = 0; idx < Foods.Length; ++ idx)
+                    foodDirections[idx] = new FoodDirection(null, 0.0f, 0.0f);
+            }
+
+            if (predatorDirections == null)
+            {
+                predatorDirections = new PredatorDirection[Predators.Length];
+                for (int idx = 0; idx < Predators.Length; ++ idx)
+                    predatorDirections[idx] = new PredatorDirection(null, 0.0f, 0.0f);
+            }
+
 
             cell.PrepareIteration();
 
             // Calculate light sensor values 
+            for (int idx = 0; idx < Foods.Length; ++ idx)
+            {
+                var item = Foods[idx];
+                float dx = item.LocationX - cell.LocationX;
+                float dy = item.LocationY - cell.LocationY;
 
-            var foodDirectoins = Foods
-                .Select( 
-                    item => 
-                    new
-                    {
-                        Item = item,
-                        DirectionX = item.LocationX - cell.LocationX,
-                        DirectionY = item.LocationY - cell.LocationY,
-                        DistanceSquare = (float)(
-                                Math.Pow(item.LocationX - cell.LocationX, 2) +
-                                Math.Pow(item.LocationY - cell.LocationY, 2) 
-                                )
-                    })
-                .ToArray();
+                foodDirections[idx].Set(item, dx, dy);
+            }
 
-            var predatorDirections = Predators
-                .Select(
-                    item =>
-                    new
-                    {
-                        Item = item,
-                        DirectionX = item.LocationX - cell.LocationX,
-                        DirectionY = item.LocationY - cell.LocationY,
-                        DistanceSquare = (float)(
-                                Math.Pow(item.LocationX - cell.LocationX, 2) +
-                                Math.Pow(item.LocationY - cell.LocationY, 2)
-                                )
-                    })
-                .ToArray();
+            for (int idx = 0; idx < Predators.Length; ++ idx)
+            {
+                var item = Predators[idx];
+                float dx = item.LocationX - cell.LocationX;
+                float dy = item.LocationY - cell.LocationY;
+
+                predatorDirections[idx].Set(item, dx, dy);
+            }
 
             for (int eyeIdx = 0; eyeIdx < cell.Eye.Length; ++ eyeIdx)
             {
@@ -362,7 +414,7 @@ namespace Neurolution
                 if (eyeCell.SensetiveToRed)
                 {
                     // This cell can see foods only
-                    foreach (var food in foodDirectoins)
+                    foreach (var food in foodDirections)
                     {
                         float modulo = viewDirectionX*food.DirectionX + viewDirectionY*food.DirectionY;
 

@@ -31,18 +31,18 @@ namespace Neurolution
             {
                     Stroke = gc,
                     X1 = 0.0,
-                    X2 = 0.0,
+                    X2 = 1.0,
                     Y1 = 0.0,
-                    Y2 = 0.0
+                    Y2 = 1.0
             };
 
             _bodyLine = new Line
             {
                     Stroke = gc,
                     X1 = 0.0,
-                    X2 = 0.0,
+                    X2 = 1.0,
                     Y1 = 0.0,
-                    Y2 = 0.0
+                    Y2 = 1.0
             };
 
             Update();
