@@ -61,7 +61,8 @@ namespace Neurolution
         public void Update()
         {
             //if (Cell.Alive)
-            if (_cell.LocationX >= 0.0 && _cell.LocationX < AppProperties.WorldWidth
+            if (_cell.CurrentEnergy > 0.001 &&
+                _cell.LocationX >= 0.0 && _cell.LocationX < AppProperties.WorldWidth
                 && _cell.LocationY >= 0.0 && _cell.LocationY < AppProperties.WorldHeight)
             {
                 double adjRotation = _cell.Rotation - Math.PI/2.0;

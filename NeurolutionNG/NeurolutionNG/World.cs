@@ -18,6 +18,8 @@ namespace Neurolution
 
         public float LocationX { get; set; }
         public float LocationY { get; set; }
+        public float DirectionX { get; set; }
+        public float DirectionY { get; set; }
         private float _value;
 
         public Predator(Random rnd, int maxX, int maxY)
@@ -26,13 +28,17 @@ namespace Neurolution
                 Reset(rnd, maxX, maxY);
         }
 
-        public void Reset(Random rnd, int maxX, int maxY)
+        public void Reset(Random rnd, int maxX, int maxY, bool valueOnly = false)
         {
             Value = AppProperties.PredatorInitialValue;// * (0.5 + rnd.NextDouble());
-            float radius = AppProperties.FoodMinDistanceToBorder;
 
-            LocationX = radius + rnd.Next(maxX - 2 * (int)radius);
-            LocationY = radius + rnd.Next(maxY - 2 * (int)radius);
+            if (!valueOnly)
+            {
+                LocationX = rnd.Next(maxX);
+                LocationY = rnd.Next(maxY);
+                DirectionX = (float)(rnd.NextDouble() - 0.5);
+                DirectionY = (float)(rnd.NextDouble() - 0.5);
+            }
         }
 
         public void Eat(float addValue)
@@ -48,6 +54,29 @@ namespace Neurolution
                     break;
                 }
             }
+        }
+
+        public void Step(Random rnd, int maxX, int maxY)
+        {
+
+            if (Value > AppProperties.PredatorResetValue)
+            {
+                Reset(rnd, maxX, maxY);
+                return;
+            }
+
+            LocationX += DirectionX + (float)(rnd.NextDouble()*0.25 - 0.125);
+            LocationY += DirectionY + (float)(rnd.NextDouble()*0.25 - 0.125);
+
+            if (LocationX > maxX)
+                LocationX -= maxX;
+            else if (LocationX < 0)
+                LocationX += maxX;
+
+            if (LocationY > maxY)
+                LocationY -= maxY;
+            else if (LocationY < 0)
+                LocationY += maxY;            
         }
     }
 
@@ -75,10 +104,9 @@ namespace Neurolution
             while (Value > 0.001)
             {
                 float valueCopy = Value;
-                float newDelta = (float) (valueCopy > AppProperties.InitialCellEnergy * 0.9 ? 0.1 : 0.01);
-                float newValue = valueCopy * (1 - newDelta);
+                float newDelta = Math.Min(valueCopy, 0.5f);
+                float newValue = valueCopy - newDelta;
 
-                // ReSharper disable once CompareOfFloatsByEqualityOperator
                 if (Interlocked.CompareExchange(ref _value, newValue, valueCopy) == valueCopy)
                 {
                     ret = valueCopy - newValue;
@@ -91,13 +119,33 @@ namespace Neurolution
 
         public bool IsEmpty => Value < 0.00001;
 
-        public void Reset(Random rnd, int maxX, int maxY)
+        public void Reset(Random rnd, int maxX, int maxY, bool valueOnly=false)
         {
             Value = AppProperties.FoodInitialValue;// * (0.5 + rnd.NextDouble());
-            float radius = AppProperties.FoodMinDistanceToBorder;
 
-            LocationX = radius + rnd.Next(maxX - 2 * (int)radius);
-            LocationY = radius + rnd.Next(maxY - 2 * (int)radius);
+            if (!valueOnly)
+            {
+                LocationX = rnd.Next(maxX);
+                LocationY = rnd.Next(maxY);
+            }
+        }
+
+        public void Step(Random rnd, int maxX, int maxY)
+        {
+            LocationX = (LocationX + rnd.Next(-1,2) + maxX) % maxX;
+
+            if (LocationX > maxX)
+                LocationX -= maxX;
+            else if (LocationX < 0)
+                LocationX += maxX;
+
+            LocationY += (float)(rnd.NextDouble() / 2.0);
+
+            if (LocationY >= maxY)
+            {
+                Reset(rnd, maxX, maxY, true);
+                LocationY = 0;
+            }
         }
     }
 
@@ -275,10 +323,15 @@ namespace Neurolution
         public void Iterate(long step)
         {
             if (step == 0)
-                WorldReset();
+                WorldInitialize();
 
-            if ((step%AppProperties.StepsPerGeneration) == 0)
-                FoodAndPredatorReset();
+            // restore any foods
+            foreach (var food in Foods)
+                food.Step(_random, _maxX, _maxY);
+
+            foreach (var predator in Predators)
+                predator.Step(_random, _maxX, _maxY);
+
 
             if (MultiThreaded)
             {
@@ -554,18 +607,8 @@ namespace Neurolution
                 }
             }
         }
-
-        private void FoodAndPredatorReset()
-        {
-            // restore any foods
-            foreach (var food in Foods)
-                food.Reset(_random, _maxX, _maxY);
-
-            foreach (var predator in Predators)
-                predator.Reset(_random, _maxX, _maxY);
-        }
-
-        private void WorldReset()
+            
+        private void WorldInitialize()
         {
             // cleanput outputs & foods 
             foreach (var cell in Cells)
@@ -575,7 +618,11 @@ namespace Neurolution
                 //cell.RandomizeLocation(_random, _maxX, _maxY);
             }
 
-            FoodAndPredatorReset();
+            foreach (var food in Foods)
+                food.Reset(_random, _maxX, _maxY);
+
+            foreach (var predator in Predators)
+                predator.Reset(_random, _maxX, _maxY);
         }
 
         public void MakeBaby(Cell source, Cell destination, float initialEnergy)

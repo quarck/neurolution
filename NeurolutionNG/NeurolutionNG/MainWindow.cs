@@ -65,7 +65,7 @@ public partial class MainWindow: Gtk.Window
         {
             _cancelTokenSource.Cancel();
 
-            for (int i = 0; i < 20; ++i)
+            for (int i = 0; i < 200; ++i)
             {
                 if (_thread == null)
                     break;
@@ -112,6 +112,7 @@ public partial class MainWindow: Gtk.Window
         }
 
         _world.SaveBest(_lastStep);
+        _world.Save();
 
         _thread = null;
     }

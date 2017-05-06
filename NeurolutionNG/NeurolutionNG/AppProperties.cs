@@ -46,6 +46,7 @@ namespace Neurolution
 //        public const float FoodRadius = 5;
 
         public const float PredatorInitialValue = 10;
+        public const float PredatorResetValue = 50;
   //      public const float PredatorRadius = 15;
 
         public const float CellTailLength = 4.0f;
@@ -56,8 +57,6 @@ namespace Neurolution
 
         public const float SevereMutationFactor = 0.15f;
         public const float SevereMutationSlope = 0.33f;
-
-        public const float FoodMinDistanceToBorder = 100;
 
         public const float MoveEnergyFactor = 0.0000001f;
         public const float InitialCellEnergy = 1.0f;
