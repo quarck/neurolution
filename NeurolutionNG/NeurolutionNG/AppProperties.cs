@@ -31,7 +31,7 @@ namespace Neurolution
 
         public const int WorldSize = 128;
         public const int FoodCountPerIteration = 32;
-        public const int PredatorCountPerIteration = 4;
+        public const int PredatorCountPerIteration = 32;
 
 
         public const int NetworkMoveForceLeft = RedEyeSize + BlueEyeSize + 0;
