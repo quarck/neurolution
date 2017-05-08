@@ -121,7 +121,7 @@ public partial class MainWindow: Gtk.Window
     {
         var now = DateTime.Now;
 
-        if ((now - _lastUIupdate).TotalMilliseconds < 1000 / 24)
+        if ((now - _lastUIupdate).TotalMilliseconds < 1000 / 60)
         {
             return;
         }

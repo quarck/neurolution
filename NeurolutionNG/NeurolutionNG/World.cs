@@ -90,6 +90,8 @@ namespace Neurolution
 
         public float LocationX { get; set; }
         public float LocationY { get; set; }
+        public float DirectionX { get; set; }
+        public float DirectionY { get; set; }
         private float _value;
 
         public Food(Random rnd, int maxX, int maxY)
@@ -127,25 +129,26 @@ namespace Neurolution
             {
                 LocationX = rnd.Next(maxX);
                 LocationY = rnd.Next(maxY);
+
+                DirectionX = (float)(rnd.NextDouble()*0.5 - 0.25);
+                DirectionY = (float)(rnd.NextDouble()*0.5 - 0.25);
             }
         }
 
         public void Step(Random rnd, int maxX, int maxY)
         {
-            LocationX = (LocationX + rnd.Next(-1,2) + maxX) % maxX;
+            LocationX += DirectionX + (float)(rnd.NextDouble()*0.25 - 0.125);
+            LocationY += DirectionY + (float)(rnd.NextDouble()*0.25 - 0.125);
 
             if (LocationX > maxX)
                 LocationX -= maxX;
             else if (LocationX < 0)
                 LocationX += maxX;
 
-            LocationY += (float)(rnd.NextDouble() / 2.0);
-
-            if (LocationY >= maxY)
-            {
-                Reset(rnd, maxX, maxY, true);
-                LocationY = 0;
-            }
+            if (LocationY > maxY)
+                LocationY -= maxY;
+            else if (LocationY < 0)
+                LocationY += maxY;            
         }
     }
 
@@ -331,6 +334,15 @@ namespace Neurolution
 
             foreach (var predator in Predators)
                 predator.Step(_random, _maxX, _maxY);
+
+            if ((step % AppProperties.StepsPerGeneration) == 0)
+            {
+                foreach (var predator in Predators)
+                    predator.Reset(_random, _maxX, _maxY, true);
+
+                foreach (var food in Foods)
+                    food.Reset(_random, _maxX, _maxY);
+            }
 
 
             if (MultiThreaded)
