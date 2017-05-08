@@ -58,25 +58,8 @@ namespace Neurolution
 
         public void Step(Random rnd, int maxX, int maxY)
         {
-
-            if (Value > AppProperties.PredatorResetValue)
-            {
-                Reset(rnd, maxX, maxY);
-                return;
-            }
-
-            LocationX += DirectionX + (float)(rnd.NextDouble()*0.25 - 0.125);
-            LocationY += DirectionY + (float)(rnd.NextDouble()*0.25 - 0.125);
-
-            if (LocationX > maxX)
-                LocationX -= maxX;
-            else if (LocationX < 0)
-                LocationX += maxX;
-
-            if (LocationY > maxY)
-                LocationY -= maxY;
-            else if (LocationY < 0)
-                LocationY += maxY;            
+            LocationX = (LocationX + DirectionX + (float)(rnd.NextDouble() * 0.25 - 0.125) + maxX) % maxX;
+            LocationY = (LocationY + DirectionY + (float)(rnd.NextDouble() * 0.25 - 0.125) + maxY) % maxY;
         }
     }
 
@@ -137,18 +120,8 @@ namespace Neurolution
 
         public void Step(Random rnd, int maxX, int maxY)
         {
-            LocationX += DirectionX + (float)(rnd.NextDouble()*0.25 - 0.125);
-            LocationY += DirectionY + (float)(rnd.NextDouble()*0.25 - 0.125);
-
-            if (LocationX > maxX)
-                LocationX -= maxX;
-            else if (LocationX < 0)
-                LocationX += maxX;
-
-            if (LocationY > maxY)
-                LocationY -= maxY;
-            else if (LocationY < 0)
-                LocationY += maxY;            
+            LocationX = (LocationX + DirectionX + (float)(rnd.NextDouble() * 0.25 - 0.125) + maxX) % maxX;
+            LocationY = (LocationY + DirectionY + (float)(rnd.NextDouble() * 0.25 - 0.125) + maxY) % maxY;
         }
     }
 
@@ -455,12 +428,18 @@ namespace Neurolution
 
             cell.PrepareIteration();
 
+            float offsX = _maxX * 1.5f - cell.LocationX;
+            float offsY = _maxY * 1.5f - cell.LocationY;
+            float halfMaxX = _maxX / 2.0f;
+            float halfMaxY = _maxY / 2.0f;
+
             // Calculate light sensor values 
             for (int idx = 0; idx < Foods.Length; ++ idx)
             {
                 var item = Foods[idx];
-                float dx = item.LocationX - cell.LocationX;
-                float dy = item.LocationY - cell.LocationY;
+
+                float dx = (item.LocationX + offsX) % _maxX - halfMaxX;
+                float dy = (item.LocationY + offsY) % _maxY - halfMaxY;
 
                 foodDirections[idx].Set(item, dx, dy);
             }
@@ -468,8 +447,9 @@ namespace Neurolution
             for (int idx = 0; idx < Predators.Length; ++ idx)
             {
                 var item = Predators[idx];
-                float dx = item.LocationX - cell.LocationX;
-                float dy = item.LocationY - cell.LocationY;
+
+                float dx = (item.LocationX + offsX) % _maxX - halfMaxX;
+                float dy = (item.LocationY + offsY) % _maxY - halfMaxY;
 
                 predatorDirections[idx].Set(item, dx, dy);
             }
