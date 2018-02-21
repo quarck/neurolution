@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
+
 namespace Neurolution
 {
     public class Predator
@@ -17,6 +18,8 @@ namespace Neurolution
 
         public float LocationX { get; set; }
         public float LocationY { get; set; }
+        public float DirectionX { get; set; }
+        public float DirectionY { get; set; }
         private float _value;
 
         public Predator(Random rnd, int maxX, int maxY)
@@ -25,18 +28,22 @@ namespace Neurolution
                 Reset(rnd, maxX, maxY);
         }
 
-        public void Reset(Random rnd, int maxX, int maxY)
+        public void Reset(Random rnd, int maxX, int maxY, bool valueOnly = false)
         {
             Value = AppProperties.PredatorInitialValue;// * (0.5 + rnd.NextDouble());
-            float radius = AppProperties.FoodMinDistanceToBorder;
 
-            LocationX = radius + rnd.Next(maxX - 2 * (int)radius);
-            LocationY = radius + rnd.Next(maxY - 2 * (int)radius);
+            if (!valueOnly)
+            {
+                LocationX = rnd.Next(maxX);
+                LocationY = rnd.Next(maxY);
+                DirectionX = (float)(rnd.NextDouble() - 0.5);
+                DirectionY = (float)(rnd.NextDouble() - 0.5);
+            }
         }
 
         public void Eat(float addValue)
         {
-            for(;;)
+            for (; ; )
             {
                 float valueCopy = Value;
                 float newValue = valueCopy + addValue;
@@ -47,6 +54,12 @@ namespace Neurolution
                     break;
                 }
             }
+        }
+
+        public void Step(Random rnd, int maxX, int maxY)
+        {
+            LocationX = (LocationX + DirectionX + (float)(rnd.NextDouble() * 0.25 - 0.125) + maxX) % maxX;
+            LocationY = (LocationY + DirectionY + (float)(rnd.NextDouble() * 0.25 - 0.125) + maxY) % maxY;
         }
     }
 
@@ -60,6 +73,8 @@ namespace Neurolution
 
         public float LocationX { get; set; }
         public float LocationY { get; set; }
+        public float DirectionX { get; set; }
+        public float DirectionY { get; set; }
         private float _value;
 
         public Food(Random rnd, int maxX, int maxY)
@@ -74,10 +89,9 @@ namespace Neurolution
             while (Value > 0.001)
             {
                 float valueCopy = Value;
-                float newDelta = (float) (valueCopy > AppProperties.InitialCellEnergy * 0.9 ? 0.1 : 0.01);
-                float newValue = valueCopy * (1 - newDelta);
+                float newDelta = Math.Min(valueCopy, 0.5f);
+                float newValue = valueCopy - newDelta;
 
-                // ReSharper disable once CompareOfFloatsByEqualityOperator
                 if (Interlocked.CompareExchange(ref _value, newValue, valueCopy) == valueCopy)
                 {
                     ret = valueCopy - newValue;
@@ -90,13 +104,72 @@ namespace Neurolution
 
         public bool IsEmpty => Value < 0.00001;
 
-        public void Reset(Random rnd, int maxX, int maxY)
+        public void Reset(Random rnd, int maxX, int maxY, bool valueOnly = false)
         {
             Value = AppProperties.FoodInitialValue;// * (0.5 + rnd.NextDouble());
-            float radius = AppProperties.FoodMinDistanceToBorder;
 
-            LocationX = radius + rnd.Next(maxX - 2 * (int)radius);
-            LocationY = radius + rnd.Next(maxY - 2 * (int)radius);
+            if (!valueOnly)
+            {
+                LocationX = rnd.Next(maxX);
+                LocationY = rnd.Next(maxY);
+
+                DirectionX = (float)(rnd.NextDouble() * 0.5 - 0.25);
+                DirectionY = (float)(rnd.NextDouble() * 0.5 - 0.25);
+            }
+        }
+
+        public void Step(Random rnd, int maxX, int maxY)
+        {
+            LocationX = (LocationX + DirectionX + (float)(rnd.NextDouble() * 0.25 - 0.125) + maxX) % maxX;
+            LocationY = (LocationY + DirectionY + (float)(rnd.NextDouble() * 0.25 - 0.125) + maxY) % maxY;
+        }
+    }
+
+    public struct FoodDirection
+    {
+        public Food Item;
+        public float DirectionX;
+        public float DirectionY;
+        public float DistanceSquare;
+
+        public FoodDirection(Food item, float dx, float dy)
+        {
+            Item = item;
+            DirectionX = dx;
+            DirectionY = dy;
+            DistanceSquare = dx * dx + dy * dy;
+        }
+
+        public void Set(Food item, float dx, float dy)
+        {
+            Item = item;
+            DirectionX = dx;
+            DirectionY = dy;
+            DistanceSquare = dx * dx + dy * dy;
+        }
+    }
+
+    public struct PredatorDirection
+    {
+        public Predator Item;
+        public float DirectionX;
+        public float DirectionY;
+        public float DistanceSquare;
+
+        public PredatorDirection(Predator item, float dx, float dy)
+        {
+            Item = item;
+            DirectionX = dx;
+            DirectionY = dy;
+            DistanceSquare = dx * dx + dy * dy;
+        }
+
+        public void Set(Predator item, float dx, float dy)
+        {
+            Item = item;
+            DirectionX = dx;
+            DirectionY = dy;
+            DistanceSquare = dx * dx + dy * dy;
         }
     }
 
@@ -104,12 +177,16 @@ namespace Neurolution
     {
         public const float Sqrt2 = 1.4142135623730950488016887242097f;
 
-//        public const float FoodRadiusSquare = AppProperties.FoodRadius * AppProperties.FoodRadius;
-  //      public const float PredatorRadiusSquare = AppProperties.PredatorRadius * AppProperties.PredatorRadius;
-
         public Cell[] Cells;
+
         public Food[] Foods;
         public Predator[] Predators;
+
+        [ThreadStatic]
+        private FoodDirection[] foodDirections;
+
+        [ThreadStatic]
+        private PredatorDirection[] predatorDirections;
 
         private readonly int _maxX;
         private readonly int _maxY;
@@ -137,7 +214,7 @@ namespace Neurolution
                 Foods[i] = new Food(_random, maxX, maxY);
 
             Predators = new Predator[predatorItems];
-            for(int i = 0; i < predatorItems; ++ i)
+            for (int i = 0; i < predatorItems; ++i)
                 Predators[i] = new Predator(_random, maxX, maxY);
         }
 
@@ -208,14 +285,38 @@ namespace Neurolution
             SerializeWorld(Cells.ToList(), -1);
         }
 
+        public void SaveBest(long step)
+        {
+            var best =
+                Cells
+                    .OrderByDescending(cell => cell.CurrentEnergy)
+                    .First();
+
+            SerializeBest(best, step);
+        }
+
 
         public void Iterate(long step)
         {
             if (step == 0)
-                WorldReset();
+                WorldInitialize();
 
-            if ((step%AppProperties.StepsPerGeneration) == 0)
-                FoodAndPredatorReset();
+            // restore any foods
+            foreach (var food in Foods)
+                food.Step(_random, _maxX, _maxY);
+
+            foreach (var predator in Predators)
+                predator.Step(_random, _maxX, _maxY);
+
+            if ((step % AppProperties.StepsPerGeneration) == 0)
+            {
+                foreach (var predator in Predators)
+                    predator.Reset(_random, _maxX, _maxY, true);
+
+                foreach (var food in Foods)
+                    food.Reset(_random, _maxX, _maxY);
+            }
+
 
             if (MultiThreaded)
             {
@@ -245,14 +346,14 @@ namespace Neurolution
                 {
                     SerializeBest(sortedWorld[0], step);
 
-                    if (step % AppProperties.SerializeWorldEveryNStep == 0)
-                        SerializeWorld(sortedWorld.ToList(), step);
+                    //                    if (step % AppProperties.SerializeWorldEveryNStep == 0)
+                    //                        SerializeWorld(sortedWorld.ToList(), step);
                 }
 
                 int srcIdx = 0;
                 int dstIdx = sortedWorld.Length - 1; //quant * 4;
 
-                foreach (var multiplier in new[] {6, 3, 2, 1})
+                foreach (var multiplier in new[] { 6, 3, 2, 1 })
                 {
                     for (int q = 0; q < quant; ++q)
                     {
@@ -289,53 +390,78 @@ namespace Neurolution
             }
         }
 
+
+        // Quick reverse square root from Quake 3 source code 
+        private static unsafe float Q_rsqrt(float number)
+        {
+            int i;
+            float x2, y;
+            const float threehalfs = 1.5F;
+
+            x2 = number * 0.5F;
+            y = number;
+            i = *(int*)&y;                           // evil floating point bit level hacking
+            i = 0x5f3759df - (i >> 1);               // what the fuck? 
+            y = *(float*)&i;
+            y = y * (threehalfs - (x2 * y * y));   // 1st iteration
+
+            return y;
+        }
+
+
         public void IterateCell(long step, Cell cell)
         {
-//            float bodyDirectionX = Math.Cos(cell.Rotation);
-//            float bodyDirectionY = Math.Sin(cell.Rotation);
+            if (foodDirections == null)
+            {
+                foodDirections = new FoodDirection[Foods.Length];
+                for (int idx = 0; idx < Foods.Length; ++idx)
+                    foodDirections[idx] = new FoodDirection(null, 0.0f, 0.0f);
+            }
+
+            if (predatorDirections == null)
+            {
+                predatorDirections = new PredatorDirection[Predators.Length];
+                for (int idx = 0; idx < Predators.Length; ++idx)
+                    predatorDirections[idx] = new PredatorDirection(null, 0.0f, 0.0f);
+            }
+
 
             cell.PrepareIteration();
 
+            float offsX = _maxX * 1.5f - cell.LocationX;
+            float offsY = _maxY * 1.5f - cell.LocationY;
+            float halfMaxX = _maxX / 2.0f;
+            float halfMaxY = _maxY / 2.0f;
+
             // Calculate light sensor values 
+            for (int idx = 0; idx < Foods.Length; ++idx)
+            {
+                var item = Foods[idx];
 
-            var foodDirectoins = Foods
-                .Select( 
-                    item => 
-                    new
-                    {
-                        Item = item,
-                        DirectionX = item.LocationX - cell.LocationX,
-                        DirectionY = item.LocationY - cell.LocationY,
-                        Distnace = (float)(Math.Sqrt(
-                                Math.Pow(item.LocationX - cell.LocationX, 2) +
-                                Math.Pow(item.LocationY - cell.LocationY, 2) 
-                                ))
-                    })
-                .ToArray();
+                float dx = (item.LocationX + offsX) % _maxX - halfMaxX;
+                float dy = (item.LocationY + offsY) % _maxY - halfMaxY;
 
-            var predatorDirections = Predators
-                .Select(
-                    item =>
-                    new
-                    {
-                        Item = item,
-                        DirectionX = item.LocationX - cell.LocationX,
-                        DirectionY = item.LocationY - cell.LocationY,
-                        Distnace = (float)(Math.Sqrt(
-                                Math.Pow(item.LocationX - cell.LocationX, 2) +
-                                Math.Pow(item.LocationY - cell.LocationY, 2)
-                                ))
-                    })
-                .ToArray();
+                foodDirections[idx].Set(item, dx, dy);
+            }
 
-            for (int eyeIdx = 0; eyeIdx < cell.Eye.Length; ++ eyeIdx)
+            for (int idx = 0; idx < Predators.Length; ++idx)
+            {
+                var item = Predators[idx];
+
+                float dx = (item.LocationX + offsX) % _maxX - halfMaxX;
+                float dy = (item.LocationY + offsY) % _maxY - halfMaxY;
+
+                predatorDirections[idx].Set(item, dx, dy);
+            }
+
+            for (int eyeIdx = 0; eyeIdx < cell.Eye.Length; ++eyeIdx)
             {
                 var eyeCell = cell.Eye[eyeIdx];
                 // 
                 float viewDirection = cell.Rotation + eyeCell.Direction;
 
-                float viewDirectionX = (float) Math.Cos(viewDirection);
-                float viewDirectionY = (float) Math.Sin(viewDirection);
+                float viewDirectionX = (float)Math.Cos(viewDirection);
+                float viewDirectionY = (float)Math.Sin(viewDirection);
 
                 float value = 0.0f;
 
@@ -343,20 +469,22 @@ namespace Neurolution
                 if (eyeCell.SensetiveToRed)
                 {
                     // This cell can see foods only
-                    foreach (var food in foodDirectoins)
+                    foreach (var food in foodDirections)
                     {
-                        float modulo = viewDirectionX*food.DirectionX + viewDirectionY*food.DirectionY;
+                        float modulo = viewDirectionX * food.DirectionX + viewDirectionY * food.DirectionY;
 
                         if (modulo <= 0.0)
                             continue;
 
-                        float cosine = modulo/food.Distnace;
+                        float invSqrRoot = Q_rsqrt(food.DistanceSquare);
 
-                        float distnaceSquare = (float) Math.Pow(food.Distnace, 2);
+                        float cosine = modulo * invSqrRoot;
+
+                        //float distnaceSquare = (float) Math.Pow(food.Distnace, 2);
 
                         float signalLevel =
-                            (float) (food.Item.Value*Math.Pow(cosine, eyeCell.Width)
-                                     /distnaceSquare);
+                            (float)(food.Item.Value * Math.Pow(cosine, eyeCell.Width)
+                                * invSqrRoot * invSqrRoot);
 
                         value += signalLevel;
                     }
@@ -371,13 +499,15 @@ namespace Neurolution
                         if (modulo <= 0.0)
                             continue;
 
-                        float cosine = modulo / predator.Distnace;
+                        float invSqrRoot = Q_rsqrt(predator.DistanceSquare);
 
-                        float distnaceSquare = (float)Math.Pow(predator.Distnace, 2);
+                        float cosine = modulo * invSqrRoot;
+
+                        //                        float distnaceSquare = (float)Math.Pow(predator.Distnace, 2);
 
                         float signalLevel =
                             (float)(predator.Item.Value * Math.Pow(cosine, eyeCell.Width)
-                                     / distnaceSquare);
+                                * invSqrRoot * invSqrRoot);
 
                         value += signalLevel;
                     }
@@ -394,10 +524,10 @@ namespace Neurolution
             float forceLeft = cell.MoveForceLeft;
             float forceRight = cell.MoveForceRight;
 
-            float forwardForce = ((forceLeft + forceRight) / Sqrt2); 
+            float forwardForce = ((forceLeft + forceRight) / Sqrt2);
             float rotationForce = (forceLeft - forceRight) / Sqrt2;
 
-            float moveEnergyRequired = 
+            float moveEnergyRequired =
                 (Math.Abs(forceLeft) + Math.Abs(forceRight)) * AppProperties.MoveEnergyFactor;
 
             if (moveEnergyRequired <= cell.CurrentEnergy)
@@ -405,13 +535,13 @@ namespace Neurolution
                 cell.CurrentEnergy -= moveEnergyRequired;
 
                 cell.Rotation += rotationForce;
-                if (cell.Rotation > Math.PI*2.0)
-                    cell.Rotation -= (float)(Math.PI*2.0);
+                if (cell.Rotation > Math.PI * 2.0)
+                    cell.Rotation -= (float)(Math.PI * 2.0);
                 else if (cell.Rotation < 0.0)
-                    cell.Rotation += (float)(Math.PI*2.0);
+                    cell.Rotation += (float)(Math.PI * 2.0);
 
-                float dX = (float) (forwardForce*Math.Cos(cell.Rotation));
-                float dY = (float) (forwardForce*Math.Sin(cell.Rotation));
+                float dX = (float)(forwardForce * Math.Cos(cell.Rotation));
+                float dY = (float)(forwardForce * Math.Sin(cell.Rotation));
 
                 cell.LocationX += dX;
                 cell.LocationY += dY;
@@ -442,7 +572,7 @@ namespace Neurolution
                     float dx = Math.Abs(cell.LocationX - food.LocationX);
                     float dy = Math.Abs(cell.LocationY - food.LocationY);
 
-                    float dv = (float) (Math.Sqrt(food.Value) / 2.0 * 5);
+                    float dv = (float)(Math.Sqrt(food.Value) / 2.0 * 5);
 
                     if (dx <= dv && dy <= dv)
                     {
@@ -470,17 +600,7 @@ namespace Neurolution
             }
         }
 
-        private void FoodAndPredatorReset()
-        {
-            // restore any foods
-            foreach (var food in Foods)
-                food.Reset(_random, _maxX, _maxY);
-
-            foreach (var predator in Predators)
-                predator.Reset(_random, _maxX, _maxY);
-        }
-
-        private void WorldReset()
+        private void WorldInitialize()
         {
             // cleanput outputs & foods 
             foreach (var cell in Cells)
@@ -490,7 +610,11 @@ namespace Neurolution
                 //cell.RandomizeLocation(_random, _maxX, _maxY);
             }
 
-            FoodAndPredatorReset();
+            foreach (var food in Foods)
+                food.Reset(_random, _maxX, _maxY);
+
+            foreach (var predator in Predators)
+                predator.Reset(_random, _maxX, _maxY);
         }
 
         public void MakeBaby(Cell source, Cell destination, float initialEnergy)
@@ -498,7 +622,7 @@ namespace Neurolution
             var rv = _random.NextDouble();
             bool severeMutations = (rv < AppProperties.SevereMutationFactor);
 
-            float severity = (float) (1.0 - Math.Pow(rv / AppProperties.SevereMutationFactor,
+            float severity = (float)(1.0 - Math.Pow(rv / AppProperties.SevereMutationFactor,
                                           AppProperties.SevereMutationSlope)); // % of neurons to mutate
 
             destination.CloneFrom(source, _random, _maxX, _maxY, severeMutations, severity);

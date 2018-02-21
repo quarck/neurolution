@@ -54,7 +54,7 @@ namespace Neurolution
         {
             LocationX = r.Next(maxX);
             LocationY = r.Next(maxY);
-            Rotation = (float) (r.NextDouble() * 2.0 * Math.PI);
+            Rotation = (float)(r.NextDouble() * 2.0 * Math.PI);
             Network = new NeuronNetwork(AppProperties.NetworkSize, r);
 
             Random = new Random(r.Next());
@@ -93,7 +93,7 @@ namespace Neurolution
         {
             LocationX = rnd.Next(maxX);
             LocationY = rnd.Next(maxY);
-            Rotation = (float) (rnd.NextDouble() * 2.0 * Math.PI);        
+            Rotation = (float)(rnd.NextDouble() * 2.0 * Math.PI);
         }
     }
 
@@ -107,7 +107,7 @@ namespace Neurolution
 
             using (FileStream fs = new FileStream(filename, FileMode.Open))
             {
-                ret = (Cell) serializer.Deserialize(fs);
+                ret = (Cell)serializer.Deserialize(fs);
             }
 
             return ret;
@@ -129,11 +129,11 @@ namespace Neurolution
 
         public static void SaveCell(string filename, Cell cell)
         {
-            XmlSerializer serializer =new XmlSerializer(typeof(Cell));
+            XmlSerializer serializer = new XmlSerializer(typeof(Cell));
             using (TextWriter writer = new StreamWriter(filename))
             {
                 serializer.Serialize(writer, cell);
-            } 
+            }
         }
 
         public static void SaveCells(string filename, List<Cell> cells)
